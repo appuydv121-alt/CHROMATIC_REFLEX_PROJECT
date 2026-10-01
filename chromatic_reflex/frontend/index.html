@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chromatic Reflex - Step 1 tracking test</title>
+  <style>
+    body { margin:0; background:#111; color:#eee; font-family:system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; }
+    #stage { position:relative; width:640px; height:480px; margin-top:16px; }
+    /* Both video and canvas are mirrored with the SAME transform so landmarks line up */
+    video, canvas { position:absolute; inset:0; width:640px; height:480px; transform:scaleX(-1); }
+    #hud { margin-top:12px; font-family:monospace; white-space:pre; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <video id="video" playsinline muted></video>
+    <canvas id="overlay" width="640" height="480"></canvas>
+  </div>
+  <div id="hud">Loading...</div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
