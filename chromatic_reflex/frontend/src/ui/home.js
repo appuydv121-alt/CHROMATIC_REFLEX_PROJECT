@@ -1,11 +1,3 @@
-// src/ui/home.js
-// Clean, professional landing screen for CSES NIT Warangal ML Team.
-// Features:
-//   - Professional academic / research team header
-//   - 4 gesture preview cards styled directly in their respective colors (Red, Blue, Yellow, Green)
-//   - Clean summary brief
-//   - "Start Benchmark" button
-
 import { playClick } from '../audio/soundManager.js';
 
 function injectHomeStyles() {
@@ -38,7 +30,6 @@ function injectHomeStyles() {
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── Header ── */
     .home-header {
       display: flex; flex-direction: column; align-items: center;
       text-align: center; gap: 10px;
@@ -61,7 +52,6 @@ function injectHomeStyles() {
       max-width: 540px; margin: 0; line-height: 1.5;
     }
 
-    /* ── Colored Gesture Cards (Each box in its true color) ── */
     .home-gestures-grid {
       width: 100%;
       display: grid; grid-template-columns: repeat(4, 1fr);
@@ -82,7 +72,6 @@ function injectHomeStyles() {
       transform: translateY(-3px);
     }
 
-    /* RED Card */
     .home-gcard-red {
       background: linear-gradient(150deg, #dc2626 0%, #991b1b 100%);
       border: 2px solid #f87171;
@@ -93,7 +82,6 @@ function injectHomeStyles() {
       border: 1px solid rgba(255, 255, 255, 0.25);
     }
 
-    /* BLUE Card */
     .home-gcard-blue {
       background: linear-gradient(150deg, #2563eb 0%, #1e40af 100%);
       border: 2px solid #60a5fa;
@@ -104,7 +92,6 @@ function injectHomeStyles() {
       border: 1px solid rgba(255, 255, 255, 0.25);
     }
 
-    /* YELLOW Card */
     .home-gcard-yellow {
       background: linear-gradient(150deg, #d97706 0%, #92400e 100%);
       border: 2px solid #fbbf24;
@@ -115,7 +102,6 @@ function injectHomeStyles() {
       border: 1px solid rgba(255, 255, 255, 0.25);
     }
 
-    /* GREEN Card */
     .home-gcard-green {
       background: linear-gradient(150deg, #16a34a 0%, #166534 100%);
       border: 2px solid #4ade80;
@@ -138,7 +124,6 @@ function injectHomeStyles() {
       letter-spacing: -0.01em;
     }
 
-    /* ── Challenge Brief ── */
     .home-brief {
       display: flex; align-items: center; justify-content: center;
       gap: 16px; font-size: 13px; font-weight: 600; color: #64748b;
@@ -147,7 +132,6 @@ function injectHomeStyles() {
     .home-brief-divider { color: #334155; }
     .home-brief-highlight { color: #94a3b8; font-weight: 700; }
 
-    /* ── Action Button ── */
     .home-actions {
       display: flex; flex-direction: column; align-items: center;
       gap: 10px; width: 100%; max-width: 340px;
@@ -186,7 +170,7 @@ export function createHomeScreen() {
 
   ov.innerHTML = `
     <div class="home-container">
-      <!-- Institutional Attribution -->
+
       <div class="home-header">
         <div class="home-org-badge">
           CSES • NIT WARANGAL • ML TEAM
@@ -197,7 +181,6 @@ export function createHomeScreen() {
         </p>
       </div>
 
-      <!-- Colored Gesture Mapping Cards -->
       <div class="home-gestures-grid">
         <div class="home-gcard home-gcard-red">
           <span class="home-gcard-tag">RED</span>
@@ -221,7 +204,6 @@ export function createHomeScreen() {
         </div>
       </div>
 
-      <!-- Quick Benchmark Info -->
       <div class="home-brief">
         <span class="home-brief-highlight">20 Timed Rounds</span>
         <span class="home-brief-divider">•</span>
@@ -230,7 +212,6 @@ export function createHomeScreen() {
         <span class="home-brief-highlight">Hand Tracking</span>
       </div>
 
-      <!-- Action Button -->
       <div class="home-actions">
         <button class="home-btn-play" id="home-btn-play">
           Start Benchmark 🚀
@@ -257,3 +238,4 @@ export function createHomeScreen() {
     },
   };
 }
+

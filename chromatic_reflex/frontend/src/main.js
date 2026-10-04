@@ -1,17 +1,10 @@
-// src/main.js
-// Main entry point orchestrating:
-//   1. CSES NIT Warangal ML Team Home / Landing Screen
-//   2. Player Setup (name, hand, camera, guide box)
-//   3. Practice & Baseline Calibration
-//   4. Round-based Game Loop (with in-game & results Exit options)
-
 import { createHomeScreen }               from './ui/home.js';
 import { runSetup }                         from './ui/setup.js';
 import { createGameUI }                  from './ui/gameUI.js';
 import { runCalibration }                from './game/calibration.js';
 import { runGame }                       from './game/gameLoop.js';
 import { initAudio, enableClickSounds }  from "./audio/soundManager.js";
-enableClickSounds(); // every button now makes the click sound, and audio is unlocked on first press
+enableClickSounds(); 
 
 const video  = document.getElementById('video');
 const canvas = document.getElementById('overlay');
@@ -21,7 +14,6 @@ const hud    = document.getElementById('hud');
 async function main() {
   hud.textContent = '';
 
-  // Resume/initialize audio on first user gesture anywhere
   const onFirstInteraction = () => {
     initAudio();
     window.removeEventListener('click', onFirstInteraction);
@@ -34,7 +26,6 @@ async function main() {
 
   const homeScreen = createHomeScreen();
 
-  // Cached tracker instance so MediaPipe model is only downloaded once
   let cachedTracker = null;
 
   function launchGameFlow() {
@@ -54,18 +45,15 @@ async function main() {
       }
 
       try {
-        // ── Step 1: Setup ───────────────────────────────────────────────────
+
         const setupResult = await runSetup(video, canvas);
         const { name, hand, tracker } = setupResult;
         cachedTracker = tracker;
 
-        // ── Step 2: Calibration ─────────────────────────────────────────────
         const baseline = await runCalibration(video, canvas, cachedTracker);
 
-        // ── Step 3: Game UI with Exit handler ───────────────────────────────
         ui = createGameUI(stage, hud, handleExitToHome);
 
-        // ── Step 4: Game Loop (20 rounds) ───────────────────────────────────
         let keepPlaying = true;
         while (keepPlaying && !exited) {
           const result = await runGame(
@@ -115,3 +103,4 @@ main().catch((e) => {
   hud.textContent = 'Error: ' + e.message;
   console.error(e);
 });
+

@@ -1,24 +1,9 @@
-// src/ui/setup.js
-// Three-step player-setup flow:
-//   Step 1 → Player name + playing-hand selection
-//   Step 2 → Camera access check, lighting check, hand-in-guide-box check
-//   Step 3 → Colour→gesture mapping briefing card
-//
-// Returns Promise<{ name: string, hand: string, tracker: HandTracker }>
-// The tracker is created here so main.js can reuse it without re-downloading.
-//
-// Also exports createMappingWidget() — a floating FAB + panel the game can
-// show/hide at any time (e.g. auto-show for N seconds before a timed round).
-
 import { startCamera }      from '../camera/camera.js';
 import { createHandTracker } from '../hands/handTracker.js';
 import { drawHand }          from '../hands/overlay.js';
 
-// ── Guide-box bounds (normalised 0..1) ────────────────────────────────────────
-// Corresponds roughly to 40-70 cm from the webcam for a 640×480 frame.
 const BOX = { x1: 0.18, y1: 0.05, x2: 0.82, y2: 0.95 };
 
-// ── Colour→gesture mapping (mirrors config/gestures.json) ────────────────────
 const MAPPING = [
   { color: 'RED',    label: 'Two Fingers', emoji: '✌️', hex: '#ef4444' },
   { color: 'BLUE',   label: 'Fist',        emoji: '✊', hex: '#3b82f6' },
@@ -26,9 +11,6 @@ const MAPPING = [
   { color: 'GREEN',  label: 'Pointing',    emoji: '☝️', hex: '#22c55e' },
 ];
 
-// ── Utility helpers ───────────────────────────────────────────────────────────
-
-/** Sample the average luminance (0-255) of a video frame. */
 function sampleBrightness(videoEl) {
   try {
     const c = document.createElement('canvas');
@@ -43,14 +25,12 @@ function sampleBrightness(videoEl) {
   } catch { return 128; }
 }
 
-/** True if the wrist landmark sits inside the guide box. */
 function handInBox(lm) {
   if (!lm) return false;
   const w = lm[0];
   return w.x >= BOX.x1 && w.x <= BOX.x2 && w.y >= BOX.y1 && w.y <= BOX.y2;
 }
 
-/** Draw the dashed guide rectangle onto the canvas. */
 function drawGuideBox(ctx) {
   const { width: cw, height: ch } = ctx.canvas;
   const x  = BOX.x1 * cw,          y  = BOX.y1 * ch;
@@ -69,7 +49,6 @@ function drawGuideBox(ctx) {
   ctx.restore();
 }
 
-/** Build the 2×2 mapping grid HTML. */
 function buildMapGridHTML() {
   return MAPPING.map(m => `
     <div class="su-map-card su-card-${m.color.toLowerCase()}">
@@ -79,8 +58,6 @@ function buildMapGridHTML() {
     </div>`).join('');
 }
 
-// ── CSS ───────────────────────────────────────────────────────────────────────
-
 function injectStyles() {
   if (document.getElementById('su-styles')) return;
   const s = document.createElement('style');
@@ -88,7 +65,6 @@ function injectStyles() {
   s.textContent = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
 
-    /* ── Overlay ── */
     #su-overlay {
       position: fixed; inset: 0; z-index: 200;
       display: flex; align-items: center; justify-content: center;
@@ -102,7 +78,6 @@ function injectStyles() {
       align-items: flex-end;
     }
 
-    /* ── Card ── */
     .su-card {
       background: rgba(255,255,255,0.055);
       border: 1px solid rgba(255,255,255,0.11);
@@ -116,7 +91,7 @@ function injectStyles() {
       animation: su-fade-in 0.35s ease;
     }
     .su-card.su-hidden { display: none !important; }
-    /* Camera-check card sits at the bottom as a bar */
+
     #su-overlay.su-cam-mode .su-card {
       border-radius: 18px 18px 0 0;
       padding: 22px 32px 20px;
@@ -129,7 +104,6 @@ function injectStyles() {
       to   { opacity:1; transform:translateY(0); }
     }
 
-    /* ── Logo / headings ── */
     .su-logo {
       font-size: 27px; font-weight: 900; letter-spacing: -1px;
       background: linear-gradient(90deg,#818cf8 0%,#38bdf8 100%);
@@ -138,7 +112,6 @@ function injectStyles() {
     }
     .su-sub { font-size: 14px; color: #94a3b8; margin-top: -14px; line-height: 1.5; }
 
-    /* ── Input & label ── */
     .su-field { display: flex; flex-direction: column; gap: 8px; }
     .su-field > label {
       font-size: 11px; font-weight: 700; letter-spacing: .1em;
@@ -154,7 +127,6 @@ function injectStyles() {
     .su-field input:focus { border-color: #818cf8; }
     .su-field input::placeholder { color: #374151; }
 
-    /* ── Hand toggle ── */
     .su-hand-toggle { display: flex; gap: 10px; }
     .su-htb {
       flex: 1; padding: 12px 0; border-radius: 11px;
@@ -169,7 +141,6 @@ function injectStyles() {
       border-color: #818cf8; color: #e0e7ff;
     }
 
-    /* ── Button ── */
     .su-btn {
       padding: 14px 0; border-radius: 12px; border: none;
       cursor: pointer; font-size: 15px; font-weight: 700;
@@ -188,7 +159,6 @@ function injectStyles() {
       box-shadow: none; cursor: not-allowed;
     }
 
-    /* ── Check rows (step 2) ── */
     .su-checks { display: flex; flex-direction: column; gap: 10px; }
     .su-check-row {
       display: flex; align-items: center; gap: 12px;
@@ -202,7 +172,6 @@ function injectStyles() {
     .su-ci { font-size: 17px; flex-shrink: 0; }
     .su-hint { font-size: 12px; color: #475569; text-align: center; line-height: 1.5; }
 
-    /* ── Mapping card grid ── */
     .su-map-grid {
       display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
     }
@@ -245,7 +214,6 @@ function injectStyles() {
     .su-map-emoji { font-size: 40px; line-height: 1.15; margin: 2px 0; }
     .su-map-label { font-size: 14px; font-weight: 800; color: #ffffff; }
 
-    /* ── Floating map widget (during play) ── */
     #su-map-fab {
       position: fixed; bottom: 20px; right: 20px; z-index: 150;
       width: 52px; height: 52px; border-radius: 50%;
@@ -289,12 +257,6 @@ function injectStyles() {
   document.head.appendChild(s);
 }
 
-// ── Mapping card widget (used during play) ────────────────────────────────────
-
-/**
- * Creates a floating FAB + panel with the colour→gesture map.
- * Returns { autoShow(ms), hide() }.
- */
 export function createMappingWidget() {
   const fab = document.createElement('button');
   fab.id = 'su-map-fab';
@@ -329,14 +291,6 @@ export function createMappingWidget() {
   };
 }
 
-// ── Main setup flow ───────────────────────────────────────────────────────────
-
-/**
- * Runs the full 3-step setup flow and resolves with { name, hand, tracker }.
- * @param {HTMLVideoElement} videoEl
- * @param {HTMLCanvasElement} canvasEl
- * @returns {Promise<{name:string, hand:string, tracker:object}>}
- */
 export function runSetup(videoEl, canvasEl) {
   injectStyles();
   const ctx = canvasEl.getContext('2d');
@@ -347,11 +301,10 @@ export function runSetup(videoEl, canvasEl) {
     let selHand    = 'right';
     let playerName = '';
 
-    // ── Build overlay ─────────────────────────────────────────────────────────
     const ov = document.createElement('div');
     ov.id = 'su-overlay';
     ov.innerHTML = `
-      <!-- Step 1: player info -->
+
       <div class="su-card" id="su-s1">
         <div class="su-logo">CHROMATIC REFLEX</div>
         <div class="su-sub">Enter your name and choose your playing hand to get started.</div>
@@ -373,7 +326,6 @@ export function runSetup(videoEl, canvasEl) {
         <button class="su-btn su-primary" id="su-b1">Check Camera →</button>
       </div>
 
-      <!-- Step 2: camera check -->
       <div class="su-card su-hidden" id="su-s2">
         <div>
           <div class="su-logo" style="font-size:20px">📷&nbsp; Camera Check</div>
@@ -399,7 +351,6 @@ export function runSetup(videoEl, canvasEl) {
         </button>
       </div>
 
-      <!-- Step 3: mapping briefing -->
       <div class="su-card su-hidden" id="su-s3">
         <div class="su-logo">Gesture Map</div>
         <div class="su-sub">
@@ -415,7 +366,6 @@ export function runSetup(videoEl, canvasEl) {
     `;
     document.body.appendChild(ov);
 
-    // ── Step 1 logic ──────────────────────────────────────────────────────────
     const htBtns = ov.querySelectorAll('.su-htb');
     htBtns.forEach(b => b.addEventListener('click', () => {
       htBtns.forEach(x => x.classList.remove('su-active'));
@@ -429,14 +379,12 @@ export function runSetup(videoEl, canvasEl) {
       await initCameraCheck();
     });
 
-    // ── Step 2: camera + hand check loop ─────────────────────────────────────
     async function initCameraCheck() {
       const crCam   = ov.querySelector('#su-cr-cam');
       const crLight = ov.querySelector('#su-cr-light');
       const crHand  = ov.querySelector('#su-cr-hand');
       const btnNext = ov.querySelector('#su-b2');
 
-      // 1. Camera access
       try {
         await startCamera(videoEl);
         setRow(crCam, 'ok', 'Camera access ✓');
@@ -445,7 +393,6 @@ export function runSetup(videoEl, canvasEl) {
         return;
       }
 
-      // 2. Load hand model
       setRow(crLight, 'loading', 'Loading hand model…');
       try {
         tracker = await createHandTracker();
@@ -454,13 +401,12 @@ export function runSetup(videoEl, canvasEl) {
         return;
       }
 
-      // 3. Per-frame check loop
       let lightOk = false, handOk = false;
       let isTerminated = false;
 
       const loop = () => {
         if (isTerminated) return;
-        // Wait until video has pixel data
+
         if (videoEl.readyState < 2) { rafId = requestAnimationFrame(loop); return; }
 
         ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
@@ -469,7 +415,6 @@ export function runSetup(videoEl, canvasEl) {
         const det = tracker.detect(videoEl);
         if (det.landmarks) drawHand(ctx, det.landmarks);
 
-        // Lighting
         const br = sampleBrightness(videoEl);
         if (br < 40) {
           setRow(crLight, 'fail', 'Too dark — add more light'); lightOk = false;
@@ -479,7 +424,6 @@ export function runSetup(videoEl, canvasEl) {
           setRow(crLight, 'ok', 'Lighting ✓'); lightOk = true;
         }
 
-        // Hand in box
         const inBox = handInBox(det.landmarks);
         if (inBox) {
           setRow(crHand, 'ok', 'Hand detected in guide box ✓'); handOk = true;
@@ -504,7 +448,6 @@ export function runSetup(videoEl, canvasEl) {
       goStep(3);
     });
 
-    // ── Step 3: go to play ────────────────────────────────────────────────────
     ov.querySelector('#su-b3').addEventListener('click', () => {
       cancelAnimationFrame(rafId);
       ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
@@ -512,12 +455,11 @@ export function runSetup(videoEl, canvasEl) {
       resolve({ name: playerName, hand: selHand, tracker });
     });
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
     function goStep(n) {
       ov.querySelectorAll('.su-card').forEach((c, i) => {
         c.classList.toggle('su-hidden', i + 1 !== n);
       });
-      // In step 2, make overlay semi-transparent so camera feed is visible
+
       ov.classList.toggle('su-cam-mode', n === 2);
     }
 
@@ -528,3 +470,4 @@ export function runSetup(videoEl, canvasEl) {
     }
   });
 }
+

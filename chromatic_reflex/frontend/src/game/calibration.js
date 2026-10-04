@@ -1,22 +1,7 @@
-// src/game/calibration.js
-// Step 3 – Practice & Calibration
-//
-// For each of the 4 mapped gestures the player holds the pose for ~1 second
-// (HOLD_FRAMES consecutive recognised frames at >= CONF_THRESHOLD confidence).
-// The system measures hand scale, records pass-rate per gesture, and blocks
-// the game from starting until all pass a reliability threshold.
-//
-// Returns: Promise<baseline>
-//   baseline = {
-//     handScale:    number,          // median wrist→MCP distance (normalised)
-//     gesturePasses: { [label]: { passRate, avgConf } }
-//   }
-
 import { classifyGesture, getGestureConfidence } from '../gesture/gestureClassifier.js';
 import { drawHand } from '../hands/overlay.js';
 import { playCorrect } from '../audio/soundManager.js';
 
-// ── Config ────────────────────────────────────────────────────────────────────
 const REQUIRED = [
   { label: 'two_fingers', name: 'Two Fingers', emoji: '✌️' },
   { label: 'fist',        name: 'Fist',        emoji: '✊' },
@@ -24,11 +9,10 @@ const REQUIRED = [
   { label: 'point',       name: 'Pointing',    emoji: '☝️' },
 ];
 
-const HOLD_FRAMES    = 25;    // ~0.8s at 30 fps
-const CONF_THRESHOLD = 0.45;  // accessible threshold during calibration
-const MIN_PASS_RATE  = 0.70;  // fraction of HOLD_FRAMES that must have been correct
+const HOLD_FRAMES    = 25;    
+const CONF_THRESHOLD = 0.45;  
+const MIN_PASS_RATE  = 0.70;  
 
-// ── Style injection ───────────────────────────────────────────────────────────
 function injectCalibStyles() {
   if (document.getElementById('calib-styles')) return;
   const s = document.createElement('style');
@@ -129,14 +113,6 @@ function injectCalibStyles() {
   document.head.appendChild(s);
 }
 
-// ── runCalibration ────────────────────────────────────────────────────────────
-
-/**
- * @param {HTMLVideoElement}  videoEl
- * @param {HTMLCanvasElement} canvasEl
- * @param {object}            tracker  – returned by createHandTracker()
- * @returns {Promise<baseline>}
- */
 export function runCalibration(videoEl, canvasEl, tracker) {
   injectCalibStyles();
 
@@ -145,11 +121,9 @@ export function runCalibration(videoEl, canvasEl, tracker) {
     let rafId = null;
     let isTerminated = false;
 
-    // ── Accumulators ─────────────────────────────────────────────────────────
     const scaleReadings = [];
-    const gesturePasses = {};   // { label: { passRate, avgConf } }
+    const gesturePasses = {};   
 
-    // ── Build overlay DOM ─────────────────────────────────────────────────────
     const ov = document.createElement('div');
     ov.id = 'calib-overlay';
 
@@ -183,7 +157,6 @@ export function runCalibration(videoEl, canvasEl, tracker) {
 
     document.body.appendChild(ov);
 
-    // ── DOM refs ──────────────────────────────────────────────────────────────
     const itemEls = REQUIRED.map((_, i) => ({
       wrap: document.getElementById(`calib-item-${i}`),
       bar:  document.getElementById(`calib-bar-${i}`),
@@ -192,22 +165,19 @@ export function runCalibration(videoEl, canvasEl, tracker) {
     const instr  = document.getElementById('calib-instr');
     const btn    = document.getElementById('calib-btn');
 
-    // ── Per-gesture tracking ──────────────────────────────────────────────────
-    let gestureIdx   = 0;   // index into REQUIRED
-    let consecFrames = 0;   // frames where correct gesture was held
-    let totalFrames  = 0;   // frames with a visible hand during this gesture
-    let confSum      = 0;   // sum of confidence scores
+    let gestureIdx   = 0;   
+    let consecFrames = 0;   
+    let totalFrames  = 0;   
+    let confSum      = 0;   
 
-    // ── Helper: set item visual state ─────────────────────────────────────────
     function setItemState(i, state) {
-      // state: '' | 'active' | 'pass' | 'fail'
+
       const cls = state ? `calib-item calib-${state}` : 'calib-item';
       itemEls[i].wrap.className = cls;
       const icons = { active: '●', pass: '✅', fail: '❌' };
       itemEls[i].icon.textContent = icons[state] ?? '○';
     }
 
-    // ── Activate a gesture slot ───────────────────────────────────────────────
     function activateGesture(i) {
       const g = REQUIRED[i];
       setItemState(i, 'active');
@@ -215,7 +185,6 @@ export function runCalibration(videoEl, canvasEl, tracker) {
         `Hold <strong>${g.emoji}&nbsp;${g.name}</strong> steadily until the bar fills…`;
     }
 
-    // ── Record result for current gesture, advance to next ───────────────────
     function recordAndAdvance() {
       const g      = REQUIRED[gestureIdx];
       const passed = consecFrames >= HOLD_FRAMES;
@@ -233,7 +202,6 @@ export function runCalibration(videoEl, canvasEl, tracker) {
       gestureIdx++;
       consecFrames = 0; totalFrames = 0; confSum = 0;
 
-      // Find next gesture that hasn't been passed yet
       while (gestureIdx < REQUIRED.length &&
              gesturePasses[REQUIRED[gestureIdx]?.label]?.passRate >= MIN_PASS_RATE) {
         gestureIdx++;
@@ -247,7 +215,6 @@ export function runCalibration(videoEl, canvasEl, tracker) {
       }
     }
 
-    // ── Main frame loop ───────────────────────────────────────────────────────
     function loop() {
       if (isTerminated) return;
       if (videoEl.readyState < 2) { rafId = requestAnimationFrame(loop); return; }
@@ -256,7 +223,6 @@ export function runCalibration(videoEl, canvasEl, tracker) {
       ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
       if (det.landmarks) drawHand(ctx, det.landmarks);
 
-      // Collect hand-scale reading for baseline
       if (det.landmarks) {
         const lm = det.landmarks;
         const dx = lm[9].x - lm[0].x, dy = lm[9].y - lm[0].y;
@@ -264,7 +230,7 @@ export function runCalibration(videoEl, canvasEl, tracker) {
       }
 
       if (gestureIdx >= REQUIRED.length) {
-        return; // Finished all gestures; do not reschedule loop
+        return; 
       }
 
       const target = REQUIRED[gestureIdx];
@@ -277,15 +243,13 @@ export function runCalibration(videoEl, canvasEl, tracker) {
         consecFrames = Math.min(HOLD_FRAMES, consecFrames + 1);
         confSum += conf;
       } else {
-        // Smooth decay rather than harsh full reset so momentary jitter doesn't wipe progress
+
         consecFrames = Math.max(0, consecFrames - 2);
       }
 
-      // Update progress bar
       const pct = Math.min(100, (consecFrames / HOLD_FRAMES) * 100);
       itemEls[gestureIdx].bar.style.width = `${pct}%`;
 
-      // Advance when held long enough
       if (consecFrames >= HOLD_FRAMES) {
         recordAndAdvance();
         return;
@@ -294,7 +258,6 @@ export function runCalibration(videoEl, canvasEl, tracker) {
       rafId = requestAnimationFrame(loop);
     }
 
-    // ── Finish: show summary + gating button ──────────────────────────────────
     function finishCalibration() {
       isTerminated = true;
       if (rafId) cancelAnimationFrame(rafId);
@@ -304,7 +267,6 @@ export function runCalibration(videoEl, canvasEl, tracker) {
       const allPass = REQUIRED.every(
         g => (gesturePasses[g.label]?.passRate ?? 0) >= MIN_PASS_RATE);
 
-      // Compute median hand scale
       const sorted = [...scaleReadings].sort((a, b) => a - b);
       const handScale = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0.15;
 
@@ -324,7 +286,7 @@ export function runCalibration(videoEl, canvasEl, tracker) {
           resolve({ handScale, gesturePasses });
         } else {
           isTerminated = false;
-          // Reset only failed items and re-run the loop
+
           REQUIRED.forEach((g, i) => {
             const p = gesturePasses[g.label];
             if (!p || p.passRate < MIN_PASS_RATE) {
@@ -343,7 +305,6 @@ export function runCalibration(videoEl, canvasEl, tracker) {
       };
     }
 
-    // ── Start button ──────────────────────────────────────────────────────────
     btn.onclick = () => {
       btn.disabled = true;
       ov.classList.add('calib-cam-mode');
@@ -354,3 +315,4 @@ export function runCalibration(videoEl, canvasEl, tracker) {
     };
   });
 }
+

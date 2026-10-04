@@ -1,40 +1,25 @@
-// src/game/gameLoop.js
-// Steps 4-12: the full round-based game engine.
-//
-// State machine per round:
-//   ARM → DELAY → CUE → FEEDBACK → (next round or RESULTS)
-//
-// Exports runGame() which resolves with:
-//   { restart: true, stats } | { exit: true, stats }
-
 import { classifyGesture, getGestureConfidence } from '../gesture/gestureClassifier.js';
 import { drawHand } from '../hands/overlay.js';
 import { playCorrect, playWrong, playCompletion } from '../audio/soundManager.js';
+import { sendSessionToBackend } from '../api/apiService.js';
 
-// ── Config (mirrors config/gestures.json) ─────────────────────────────────────
 const COLOR_GESTURE_MAP = {
   RED:    'two_fingers',
   BLUE:   'fist',
   YELLOW: 'thumbs_up',
   GREEN:  'point',
 };
-const COLORS          = Object.keys(COLOR_GESTURE_MAP);   // ['RED','BLUE','YELLOW','GREEN']
+const COLORS          = Object.keys(COLOR_GESTURE_MAP);   
 const TOTAL_ROUNDS    = 20;
-export const CONFIRM_N       = 5;       // frames to confirm CORRECT target (tunable 5-8 frames)
-export const CONFIRM_WRONG_N = 6;       // frames to confirm WRONG gesture (prevents transition errors)
-const CONF_THRESH     = 0.65;    // confidence threshold for confirmed gestures
-export const FEEDBACK_MS     = 1600;    // ms to show feedback / ignore inputs before next round
-const ARM_HOLD_MS     = 500;     // ms of rest needed to arm
-const DELAY_MIN_MS    = 1000;    // random delay lower bound
-const DELAY_MAX_MS    = 3000;    // random delay upper bound
-const SCORE_BASE      = 10;      // points per correct answer (before streak bonus)
+export const CONFIRM_N       = 5;       
+export const CONFIRM_WRONG_N = 6;       
+const CONF_THRESH     = 0.65;    
+export const FEEDBACK_MS     = 1600;    
+const ARM_HOLD_MS     = 500;     
+const DELAY_MIN_MS    = 1000;    
+const DELAY_MAX_MS    = 3000;    
+const SCORE_BASE      = 10;      
 
-/**
- * Dynamic accelerating round timeout:
- * Round 1:  2800 ms (comfortable opening)
- * Round 10: 2180 ms
- * Round 16-20: 1770 ms down to 1500 ms (balanced reflex test: fast and responsive, yet completely achievable)
- */
 function getRoundTimeout(roundIdx, totalRounds) {
   const startMs = 2800;
   const endMs   = 1500;
@@ -42,56 +27,36 @@ function getRoundTimeout(roundIdx, totalRounds) {
   return Math.round(startMs - t * (startMs - endMs));
 }
 
-// A gesture is "rest" if it is not in the colour→gesture map
 const MAPPED = new Set(Object.values(COLOR_GESTURE_MAP));
 function isRest(label) { return !MAPPED.has(label); }
 
-// ── Main entry point ──────────────────────────────────────────────────────────
-
-/**
- * Runs the complete game (TOTAL_ROUNDS rounds) using a requestAnimationFrame loop.
- *
- * @param {HTMLVideoElement}   videoEl
- * @param {HTMLCanvasElement}  canvasEl
- * @param {object}             tracker     – from createHandTracker()
- * @param {{ name, hand }}     playerInfo
- * @param {object}             _baseline   – reserved for future personalised thresholds
- * @param {GameUI}             ui          – from createGameUI()
- * @param {Function}           onExit      – optional exit callback
- * @returns {Promise<results>}
- */
 export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, onExit) {
   return new Promise((resolve) => {
     const ctx = canvasEl.getContext('2d');
     let rafId = null;
     let isTerminated = false;
 
-    // ── Per-game stats ────────────────────────────────────────────────────────
     const stats = {
       score: 0, correct: 0, total: 0,
       reactionTimes: [], longestStreak: 0,
     };
     let streak = 0;
 
-    // Round history (for results screen)
     const roundHistory = [];
 
-    // ── Per-round state ───────────────────────────────────────────────────────
     let roundIdx   = 0;
-    let state      = 'ARM';    // ARM | DELAY | CUE | FEEDBACK
+    let state      = 'ARM';    
     let stateStart = performance.now();
 
     let currentColor   = pickColor();
     let targetGesture  = COLOR_GESTURE_MAP[currentColor];
-    let cueTriggeredAt = -1;   // when DELAY ends and CUE begins (absolute ms)
-    let t0             = -1;   // timestamp of first CUE frame (performance.now)
+    let cueTriggeredAt = -1;   
+    let t0             = -1;   
 
-    // Gesture confirmation buffer
-    let runLabel  = null;   // label of current stable run
-    let runCount  = 0;      // consecutive frames in current run
-    let runStart  = -1;     // performance.now() of first frame of current run
+    let runLabel  = null;   
+    let runCount  = 0;      
+    let runStart  = -1;     
 
-    // ── Exit Handler ──────────────────────────────────────────────────────────
     function handleExit() {
       if (isTerminated) return;
       isTerminated = true;
@@ -112,7 +77,6 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
     }
     ui.showArm();
 
-    // ── Frame loop ────────────────────────────────────────────────────────────
     function loop() {
       if (isTerminated) return;
       if (videoEl.readyState < 2) { rafId = requestAnimationFrame(loop); return; }
@@ -128,33 +92,31 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
 
       switch (state) {
 
-        // ── ARM: wait for rest position ─────────────────────────────────────
         case 'ARM': {
           if (ui.updateDetection) ui.updateDetection(label, 0);
           if (isRest(label)) {
             if (now - stateStart >= ARM_HOLD_MS) {
-              // Armed! Schedule random delay
+
               const delay = DELAY_MIN_MS + Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS);
               cueTriggeredAt = now + delay;
               transitionTo('DELAY', now);
               ui.showDelay();
             }
           } else {
-            stateStart = now; // reset — hand not at rest
+            stateStart = now; 
           }
           break;
         }
 
-        // ── DELAY: random wait; false start detection ────────────────────────
         case 'DELAY': {
           if (ui.updateDetection) ui.updateDetection(label, 0);
           if (isMapped(label) && conf >= CONF_THRESH) {
-            // False start!
+
             transitionTo('ARM', now);
             ui.showFalseStart();
             setTimeout(() => { if (state === 'ARM' && !isTerminated) ui.showArm(); }, 1200);
           } else if (now >= cueTriggeredAt) {
-            // Fire cue with dynamic accelerating round timeout (2.5s down to 1.0s)
+
             const currentTimeout = getRoundTimeout(roundIdx, TOTAL_ROUNDS);
             t0 = now;
             runLabel = null; runCount = 0; runStart = -1;
@@ -164,10 +126,9 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
           break;
         }
 
-        // ── CUE: detect and confirm gesture ─────────────────────────────────
         case 'CUE': {
           const currentTimeout = getRoundTimeout(roundIdx, TOTAL_ROUNDS);
-          // Timeout
+
           if (now - t0 >= currentTimeout) {
             if (ui.updateDetection) ui.updateDetection(label, 0);
             recordResult('timeout', null, currentColor, targetGesture, null);
@@ -176,9 +137,6 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
             break;
           }
 
-          // Confirmation logic:
-          // Target gesture needs CONFIRM_N (3 frames).
-          // Wrong gesture needs CONFIRM_WRONG_N (6 frames) to guard against mid-motion gestures.
           const isTarget  = label === targetGesture && conf >= CONF_THRESH;
           const isWrong   = isMapped(label)          && conf >= CONF_THRESH && label !== targetGesture;
 
@@ -212,7 +170,7 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
               if (ui.updateDetection) ui.updateDetection(label, Math.min(1, 1 / threshold));
             }
           } else {
-            // Reset run on non-mapped or low-conf frame
+
             if (label !== runLabel) {
               runLabel = label;
               runCount = 0;
@@ -223,18 +181,20 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
           break;
         }
 
-        // ── FEEDBACK: hold result on screen ─────────────────────────────────
         case 'FEEDBACK': {
           if (ui.updateDetection) ui.updateDetection(label, 0);
           if (now - stateStart >= FEEDBACK_MS) {
             ui.hideFeedback();
             roundIdx++;
             if (roundIdx >= TOTAL_ROUNDS) {
-              // Game over
+
               isTerminated = true;
               cancelAnimationFrame(rafId);
               ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
               playCompletion();
+
+              sendSessionToBackend(playerInfo, stats, roundHistory);
+
               ui.showResults(
                 stats,
                 playerInfo,
@@ -244,7 +204,7 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
               );
               return;
             }
-            // Next round
+
             currentColor  = pickColor();
             targetGesture = COLOR_GESTURE_MAP[currentColor];
             runLabel = null; runCount = 0; runStart = -1;
@@ -264,7 +224,6 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
 
     rafId = requestAnimationFrame(loop);
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
     function transitionTo(newState, now) {
       state = newState;
       stateStart = now;
@@ -285,7 +244,7 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
         stats.correct++;
         stats.longestStreak = Math.max(stats.longestStreak, streak);
         if (rt != null) stats.reactionTimes.push(rt);
-        // Scoring: base + streak bonus (every 3-streak gives +5 extra)
+
         const bonus = Math.floor(streak / 3) * 5;
         stats.score += SCORE_BASE + bonus;
       } else {
@@ -300,3 +259,4 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
     }
   });
 }
+

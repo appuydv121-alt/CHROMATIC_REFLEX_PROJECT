@@ -1,20 +1,10 @@
-// src/ui/gameUI.js
-// Injects and manages all in-game UI elements:
-//   • HUD Bar     – Player name, Round progress, Score (+float), Streak (flame+toasts), Mute, Exit
-//   • Centered Stack (large, immersive layout up to ~920px wide):
-//       1. Target Color Banner (color name only, countdown bar with 25% warning)
-//       2. Large Webcam Stage (centered hero element, aspect-ratio 4/3, corner brackets, detected chip)
-//   • Anti-Cheat  – No mapping reveals during play; WRONG shows only player's gesture
-//   • Results     – Full-page overlay with stats, history, Play Again and Exit
-
 import { initAudio, toggleMute, getMuted, playCompletion } from '../audio/soundManager.js';
 
-// ── Constants & Helpers ───────────────────────────────────────────────────────
 const TARGET_COLORS = {
   RED:    { bg: '#ef4444', fg: '#ffffff', glow: 'rgba(239, 68, 68, 0.65)' },
   BLUE:   { bg: '#3b82f6', fg: '#ffffff', glow: 'rgba(59, 130, 246, 0.65)' },
-  YELLOW: { bg: '#f59e0b', fg: '#451a03', glow: 'rgba(245, 158, 11, 0.65)' }, // dark amber for readability
-  GREEN:  { bg: '#22c55e', fg: '#052e16', glow: 'rgba(34, 197, 94, 0.65)' }, // dark green for readability
+  YELLOW: { bg: '#f59e0b', fg: '#451a03', glow: 'rgba(245, 158, 11, 0.65)' }, 
+  GREEN:  { bg: '#22c55e', fg: '#052e16', glow: 'rgba(34, 197, 94, 0.65)' }, 
 };
 
 const GESTURE_DISPLAY_NAMES = {
@@ -26,7 +16,6 @@ const GESTURE_DISPLAY_NAMES = {
   none:        'None',
 };
 
-// ── Style injection ───────────────────────────────────────────────────────────
 function injectGameStyles() {
   if (document.getElementById('gu-styles')) return;
   const s = document.createElement('style');
@@ -46,7 +35,6 @@ function injectGameStyles() {
       justify-content: center;
     }
 
-    /* ── Main Container (Centered single column, spacious and prominent) ── */
     #gu-wrap {
       width: 100%;
       max-width: 960px;
@@ -63,7 +51,6 @@ function injectGameStyles() {
       position: relative;
     }
 
-    /* ── 1. HUD Glass Pill Bar on top ── */
     #gu-bar {
       width: 100%;
       max-width: 920px;
@@ -105,7 +92,6 @@ function injectGameStyles() {
       font-variant-numeric: tabular-nums;
     }
 
-    /* Player */
     #gu-player-val {
       color: #38bdf8;
       font-size: 16px;
@@ -116,7 +102,6 @@ function injectGameStyles() {
       white-space: nowrap;
     }
 
-    /* Round & Progress Bar */
     .gu-round-wrap {
       display: flex;
       flex-direction: column;
@@ -140,7 +125,6 @@ function injectGameStyles() {
       transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Score & Floating pop */
     .gu-score-wrap {
       display: flex;
       flex-direction: column;
@@ -179,7 +163,6 @@ function injectGameStyles() {
       100% { transform: translateY(-24px); opacity: 0; }
     }
 
-    /* Streak & Fire Toasts */
     .gu-streak-wrap {
       display: flex;
       flex-direction: column;
@@ -227,7 +210,6 @@ function injectGameStyles() {
       100% { opacity: 0; transform: translateX(-50%) translateY(-6px); }
     }
 
-    /* HUD Buttons (scale 1.05 hover, 0.95 press) */
     .gu-btn, .gu-bar-exit, .gu-bar-mute {
       transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
       font-family: inherit;
@@ -272,8 +254,6 @@ function injectGameStyles() {
       color: #fff;
     }
 
-    /* ── Centered Shared Stack (Banner + Large Webcam Frame) ── */
-    /* Banner and webcam share one wrapper with the same max-width and margin: 0 auto, so edges line up exactly */
     .gu-game-stack {
       width: 100%;
       max-width: 920px;
@@ -285,7 +265,6 @@ function injectGameStyles() {
       box-sizing: border-box;
     }
 
-    /* ── 2. Target Banner (Color name only, same width as webcam) ── */
     #gu-cue {
       width: 100%;
       height: 74px;
@@ -346,7 +325,6 @@ function injectGameStyles() {
       40%         { transform: scale(1.6); opacity: 1; }
     }
 
-    /* Countdown Bar along bottom edge (shrinks and turns red in last 25%) */
     #gu-timeout-bar {
       position: absolute;
       bottom: 0;
@@ -367,7 +345,6 @@ function injectGameStyles() {
       100% { opacity: 1; filter: brightness(1.25); }
     }
 
-    /* ── 3. Large Hero Webcam Frame (Horizontally centered, main focus) ── */
     .gu-stage-frame {
       margin: 0 auto !important;
       width: 100% !important;
@@ -395,7 +372,6 @@ function injectGameStyles() {
       border-radius: 15px !important;
     }
 
-    /* Animated Corner Brackets */
     .gu-corner {
       position: absolute;
       width: 22px;
@@ -405,14 +381,13 @@ function injectGameStyles() {
       border-color: var(--stage-border, #38bdf8);
       border-style: solid;
       transition: border-color 0.25s ease;
-      transform: none !important; /* Never mirrored */
+      transform: none !important; 
     }
     .gu-corner-tl { top: 10px; left: 10px; border-width: 3px 0 0 3px; border-top-left-radius: 8px; }
     .gu-corner-tr { top: 10px; right: 10px; border-width: 3px 3px 0 0; border-top-right-radius: 8px; }
     .gu-corner-bl { bottom: 10px; left: 10px; border-width: 0 0 3px 3px; border-bottom-left-radius: 8px; }
     .gu-corner-br { bottom: 10px; right: 10px; border-width: 0 3px 3px 0; border-bottom-right-radius: 8px; }
 
-    /* Bottom-Left Detected Gesture Chip with Progress Ring */
     .gu-detect-chip {
       position: absolute;
       bottom: 16px;
@@ -431,7 +406,7 @@ function injectGameStyles() {
       box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
       pointer-events: none;
       user-select: none;
-      transform: none !important; /* Never mirrored */
+      transform: none !important; 
     }
     .gu-detect-ring {
       width: 22px;
@@ -454,12 +429,10 @@ function injectGameStyles() {
       color: #38bdf8;
     }
 
-    /* Hidden footer per user request */
     #gu-side-panel {
       display: none !important;
     }
 
-    /* Responsive */
     @media (max-width: 900px) {
       #gu-wrap {
         padding: 12px;
@@ -477,13 +450,12 @@ function injectGameStyles() {
       }
     }
 
-    /* ── Feedback overlay inside stage ── */
     #gu-feedback {
       position: absolute; inset: 0; z-index: 25;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       pointer-events: none; opacity: 0;
       transition: opacity 0.15s ease;
-      transform: none !important; /* Never mirrored */
+      transform: none !important; 
     }
     #gu-feedback.gu-show { opacity: 1; }
     #gu-feedback-bg {
@@ -501,7 +473,6 @@ function injectGameStyles() {
       font-family: 'JetBrains Mono', monospace; text-align: center;
     }
 
-    /* ── Results Overlay ── */
     #gu-results {
       position: fixed; inset: 0; z-index: 300;
       background: rgba(4, 6, 16, 0.95);
@@ -600,21 +571,10 @@ function injectGameStyles() {
   document.head.appendChild(s);
 }
 
-// ── createGameUI ──────────────────────────────────────────────────────────────
-
-/**
- * Creates and mounts all in-game UI components in a focused, hero-webcam layout.
- *
- * @param {HTMLElement} stageEl  – existing #stage element
- * @param {HTMLElement} hudEl    – existing #hud element (hidden during game)
- * @param {Function}    onExit   – callback when Exit button is clicked
- * @returns {GameUI}
- */
 export function createGameUI(stageEl, hudEl, onExit) {
   injectGameStyles();
   hudEl.style.display = 'none';
 
-  // Cleanup any old leftovers
   const existingWrap = document.getElementById('gu-wrap');
   if (existingWrap) {
     if (stageEl.parentNode === existingWrap || stageEl.closest('#gu-wrap')) {
@@ -627,17 +587,13 @@ export function createGameUI(stageEl, hudEl, onExit) {
   const existingFb = document.getElementById('gu-feedback');
   if (existingFb) existingFb.remove();
 
-  // Style stage frame
   stageEl.classList.add('gu-stage-frame');
   stageEl.style.position = 'relative';
 
-  // ── Construct Layout DOM ───────────────────────────────────────────────────
-  // Outer container
   const wrap = document.createElement('div');
   wrap.id = 'gu-wrap';
   stageEl.parentNode.insertBefore(wrap, stageEl);
 
-  // 1. Top: HUD Glass Pill Bar
   const bar = document.createElement('div');
   bar.id = 'gu-bar';
   bar.innerHTML = `
@@ -678,13 +634,11 @@ export function createGameUI(stageEl, hudEl, onExit) {
   `;
   wrap.appendChild(bar);
 
-  // 2. Shared Centered Stack: Banner + Large Webcam Frame
   const stack = document.createElement('div');
   stack.id = 'gu-game-stack';
   stack.className = 'gu-game-stack';
   wrap.appendChild(stack);
 
-  // 2a. Target Color Banner (same width as webcam frame)
   const cue = document.createElement('div');
   cue.id = 'gu-cue';
   cue.innerHTML = `
@@ -693,10 +647,8 @@ export function createGameUI(stageEl, hudEl, onExit) {
   `;
   stack.appendChild(cue);
 
-  // 2b. Large Webcam Frame (Main Hero Focus)
   stack.appendChild(stageEl);
 
-  // Corner brackets decoration
   const cornersWrap = document.createElement('div');
   cornersWrap.id = 'gu-corners-wrap';
   cornersWrap.innerHTML = `
@@ -707,7 +659,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
   `;
   stageEl.appendChild(cornersWrap);
 
-  // Bottom-Left Detected Chip with SVG Ring
   const detectChip = document.createElement('div');
   detectChip.id = 'gu-detect-chip';
   detectChip.className = 'gu-detect-chip';
@@ -722,7 +673,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
   `;
   stageEl.appendChild(detectChip);
 
-  // Invisible/hidden dummy container for side-panel refs so existing hooks never throw
   const sidePanelDummy = document.createElement('div');
   sidePanelDummy.id = 'gu-side-panel';
   sidePanelDummy.style.display = 'none';
@@ -734,7 +684,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
   `;
   wrap.appendChild(sidePanelDummy);
 
-  // 3. Feedback overlay (inside stage, absolute)
   const fb = document.createElement('div');
   fb.id = 'gu-feedback';
   fb.innerHTML = `
@@ -747,7 +696,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
   `;
   stageEl.appendChild(fb);
 
-  // 4. Results overlay (full page, hidden initially)
   const results = document.createElement('div');
   results.id = 'gu-results';
   results.classList.add('gu-hidden');
@@ -770,7 +718,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
   `;
   document.body.appendChild(results);
 
-  // ── Element references ─────────────────────────────────────────────────────
   const roundVal         = document.getElementById('gu-round-val');
   const roundProgressBar = document.getElementById('gu-round-progress-bar');
   const scoreVal         = document.getElementById('gu-score-val');
@@ -788,13 +735,11 @@ export function createGameUI(stageEl, hudEl, onExit) {
   const btnExit          = document.getElementById('gu-btn-exit');
   const btnMute          = document.getElementById('gu-btn-mute');
 
-  // Stats refs (optional)
   const statAcc        = document.getElementById('gu-stat-acc');
   const statBestStreak = document.getElementById('gu-stat-best-streak');
   const statAvgRt      = document.getElementById('gu-stat-avg-rt');
   const statRoundsLeft = document.getElementById('gu-stat-rounds-left');
 
-  // Detection chip refs
   const ringFg      = document.getElementById('gu-ring-fg');
   const detectLabel = document.getElementById('gu-detect-label');
 
@@ -818,17 +763,14 @@ export function createGameUI(stageEl, hudEl, onExit) {
   let currentStageColor = '#38bdf8';
   let activeScoreRaf = null;
 
-  // ── Helper functions ───────────────────────────────────────────────────────
   function setStageBorderColor(color, glow = null) {
     currentStageColor = color;
     stageEl.style.setProperty('--stage-border', color);
     stageEl.style.setProperty('--stage-glow', glow || color);
   }
 
-  // Set default initial border
   setStageBorderColor('rgba(56, 189, 248, 0.4)', 'rgba(56, 189, 248, 0.2)');
 
-  // ── Public Interface ───────────────────────────────────────────────────────
   return {
     setExitHandler(fn) {
       currentExitHandler = fn;
@@ -851,18 +793,16 @@ export function createGameUI(stageEl, hudEl, onExit) {
       const diff = targetScore - currentScore;
 
       if (diff > 0) {
-        // Floating +diff badge
+
         scoreFloat.textContent = `+${diff}`;
         scoreFloat.classList.remove('gu-float-anim');
-        void scoreFloat.offsetWidth; // retrigger reflow
+        void scoreFloat.offsetWidth; 
         scoreFloat.classList.add('gu-float-anim');
 
-        // Score scale pop
         scoreVal.classList.remove('gu-score-pop');
         void scoreVal.offsetWidth;
         scoreVal.classList.add('gu-score-pop');
 
-        // Smooth number count-up
         if (activeScoreRaf) cancelAnimationFrame(activeScoreRaf);
         const startVal = currentScore;
         const startTime = performance.now();
@@ -891,7 +831,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
     setStreak(s) {
       streakVal.textContent = s;
 
-      // Flame scale and glowing shadow as streak increases
       if (s <= 0) {
         streakFlame.style.transform = 'scale(1)';
         streakFlame.style.filter = 'grayscale(0.6) opacity(0.6)';
@@ -909,7 +848,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
         streakFlame.style.filter = 'drop-shadow(0 0 20px rgba(239, 68, 68, 1)) drop-shadow(0 0 30px rgba(234, 179, 8, 1))';
       }
 
-      // Small "On fire!" popup at streaks 3, 5, 10
       if (s === 3 || s === 5 || s === 10) {
         const messages = {
           3: '🔥 ON FIRE! 3x',
@@ -949,21 +887,17 @@ export function createGameUI(stageEl, hudEl, onExit) {
       clearTimeout(timeoutWarnTimer);
       const meta = TARGET_COLORS[colorName] ?? { bg: '#3b82f6', fg: '#fff', glow: 'rgba(59, 130, 246, 0.6)' };
 
-      // Banner background and glowing theme
       cue.style.background = meta.bg;
       cue.style.setProperty('--banner-glow', meta.glow);
       cue.classList.remove('gu-cue-active');
-      void cue.offsetWidth; // re-trigger scale/slide-in pop
+      void cue.offsetWidth; 
       cue.classList.add('gu-cue-active');
 
-      // Banner shows ONLY the color name (high readability)
       cueText.style.color = meta.fg;
       cueText.textContent = colorName.toUpperCase();
 
-      // Stage border in target color
       setStageBorderColor(meta.bg, meta.glow);
 
-      // Countdown bar shrinks over the round time and turns red in last 25%
       timeoutBar.classList.remove('gu-timeout-red');
       timeoutBar.style.transition = 'none';
       timeoutBar.style.width = '100%';
@@ -985,11 +919,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
       setTimeout(() => cue.classList.remove('gu-false-start'), 1200);
     },
 
-    /**
-     * Anti-Cheat Feedback:
-     * On wrong answer, shows ONLY "Wrong" and "You showed: <gesture>".
-     * NEVER reveals the expected/correct gesture!
-     */
     showFeedback(type, rt, _targetGesture, detectedGesture) {
       clearTimeout(fbTimer);
       clearTimeout(timeoutWarnTimer);
@@ -1011,7 +940,7 @@ export function createGameUI(stageEl, hudEl, onExit) {
           borderColor: '#ef4444',
           icon: '❌',
           label: 'WRONG',
-          rtText: `You showed: ${showedText}`, // Anti-cheat: NEVER reveal target answer!
+          rtText: `You showed: ${showedText}`, 
         },
         timeout: {
           bg: '#7c3aed',
@@ -1029,7 +958,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
       fbRt.textContent     = cfg.rtText;
       fbEl.classList.add('gu-show');
 
-      // Flash webcam border to feedback color
       setStageBorderColor(cfg.borderColor, cfg.bg);
     },
 
@@ -1038,19 +966,16 @@ export function createGameUI(stageEl, hudEl, onExit) {
       setStageBorderColor('rgba(56, 189, 248, 0.4)', 'rgba(56, 189, 248, 0.2)');
     },
 
-    /** Live hand detection chip updater with SVG progress circle */
     updateDetection(label, progressRatio = 0) {
       const name = GESTURE_DISPLAY_NAMES[label] ?? (label || 'None');
       detectLabel.innerHTML = `Detected: <span class="gu-detect-val">${name}</span>`;
 
-      // Circular ring progress (circumference = 56.55)
       const circumference = 56.55;
       const p = Math.max(0, Math.min(1, progressRatio));
       ringFg.style.strokeDashoffset = (circumference * (1 - p)).toFixed(2);
       ringFg.style.stroke = p >= 1 ? '#22c55e' : (p > 0.5 ? '#38bdf8' : '#64748b');
     },
 
-    /** Updates live stats */
     updateLiveStats(stats, currentStreak, currentRound, totalRounds) {
       if (statAcc) {
         const accuracy = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 100;
@@ -1115,7 +1040,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
         </div>
       `;
 
-      // Anti-cheat in history: show round #, color and outcome, but no answer reveals
       const hist = document.getElementById('gu-res-history');
       hist.innerHTML = rounds.map((r, i) => {
         const cls = r.outcome;
@@ -1147,7 +1071,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
       clearTimeout(timeoutWarnTimer);
       if (activeScoreRaf) cancelAnimationFrame(activeScoreRaf);
 
-      // Clean stage enhancements
       stageEl.classList.remove('gu-stage-frame');
       const corners = document.getElementById('gu-corners-wrap');
       if (corners) corners.remove();
@@ -1164,3 +1087,4 @@ export function createGameUI(stageEl, hudEl, onExit) {
     }
   };
 }
+

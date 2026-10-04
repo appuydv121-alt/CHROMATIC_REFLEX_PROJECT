@@ -1,0 +1,11 @@
+{
+  "labels": ["open", "fist", "two_fingers", "thumbs_up", "point", "none"],
+  "colorMap": {
+    "RED": "two_fingers",
+    "BLUE": "fist",
+    "YELLOW": "thumbs_up",
+    "GREEN": "point"
+  },
+  "confirmFrames": 3,
+  "confidenceThreshold": 0.7
+}
