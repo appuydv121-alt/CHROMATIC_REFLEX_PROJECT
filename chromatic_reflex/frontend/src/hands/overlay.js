@@ -9,23 +9,25 @@ const CONNECTIONS = [
   [0,17],
 ];
 
-export function drawHand(ctx, landmarks) {
+export function drawHand(ctx, landmarks, color = "#00e676") {
   const { width: w, height: h } = ctx.canvas;
   ctx.clearRect(0, 0, w, h);
   if (!landmarks) return;
 
-  ctx.strokeStyle = "#00e676";
+  ctx.strokeStyle = color;
   ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   for (const [a, b] of CONNECTIONS) {
     ctx.beginPath();
     ctx.moveTo(landmarks[a].x * w, landmarks[a].y * h);
     ctx.lineTo(landmarks[b].x * w, landmarks[b].y * h);
     ctx.stroke();
   }
-  ctx.fillStyle = "#ff1744";
+  ctx.fillStyle = color;
   for (const p of landmarks) {
     ctx.beginPath();
-    ctx.arc(p.x * w, p.y * h, 4, 0, Math.PI * 2);
+    ctx.arc(p.x * w, p.y * h, 3.5, 0, Math.PI * 2);
     ctx.fill();
   }
 }

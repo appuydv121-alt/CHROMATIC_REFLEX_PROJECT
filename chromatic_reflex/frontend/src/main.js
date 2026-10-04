@@ -6,7 +6,7 @@
 //   4. Round-based Game Loop (with in-game & results Exit options)
 
 import { createHomeScreen }               from './ui/home.js';
-import { runSetup, createMappingWidget } from './ui/setup.js';
+import { runSetup }                         from './ui/setup.js';
 import { createGameUI }                  from './ui/gameUI.js';
 import { runCalibration }                from './game/calibration.js';
 import { runGame }                       from './game/gameLoop.js';
@@ -41,7 +41,6 @@ async function main() {
     homeScreen.show(async () => {
       initAudio();
       let ui = null;
-      let mapWidget = null;
       let exited = false;
 
       function handleExitToHome() {
@@ -50,10 +49,6 @@ async function main() {
         if (ui) {
           ui.destroy();
           ui = null;
-        }
-        if (mapWidget) {
-          mapWidget.hide();
-          mapWidget = null;
         }
         launchGameFlow();
       }
@@ -69,10 +64,6 @@ async function main() {
 
         // ── Step 3: Game UI with Exit handler ───────────────────────────────
         ui = createGameUI(stage, hud, handleExitToHome);
-
-        // Show mapping reminder before first round
-        mapWidget = createMappingWidget();
-        mapWidget.autoShow(4000);
 
         // ── Step 4: Game Loop (20 rounds) ───────────────────────────────────
         let keepPlaying = true;
@@ -98,10 +89,6 @@ async function main() {
         if (ui) {
           try { ui.destroy(); } catch {}
           ui = null;
-        }
-        if (mapWidget) {
-          try { mapWidget.hide(); } catch {}
-          mapWidget = null;
         }
         hud.style.display = 'block';
         hud.innerHTML = `

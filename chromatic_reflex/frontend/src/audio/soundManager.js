@@ -150,6 +150,71 @@ export function playClick() {
   }
 }
 
+let lastCompletionTime = 0;
+
+/** GAME COMPLETION: triumphant, celebratory victory fanfare (~1.6 s) */
+export function playCompletion() {
+  if (muted) return;
+  const nowMs = performance.now();
+  if (nowMs - lastCompletionTime < 2500) return; // prevent duplicate trigger
+  lastCompletionTime = nowMs;
+  lastSoundTime = nowMs;
+
+  initAudio();
+  if (!ctx) return;
+
+  const trigger = () => {
+    // 1. Flourish fanfare roll (brass/bright lead)
+    const fanfareNotes = [
+      { f: 523.25, start: 0.00, dur: 0.12, vol: 0.26 }, // C5
+      { f: 659.25, start: 0.11, dur: 0.12, vol: 0.26 }, // E5
+      { f: 783.99, start: 0.22, dur: 0.12, vol: 0.28 }, // G5
+      { f: 1046.50, start: 0.33, dur: 0.18, vol: 0.32 }, // C6
+      { f: 783.99, start: 0.48, dur: 0.12, vol: 0.24 }, // G5
+      { f: 1046.50, start: 0.58, dur: 0.22, vol: 0.34 }, // C6
+    ];
+
+    fanfareNotes.forEach(({ f, start, dur, vol }) => {
+      tone({ freq: f, type: "sine", start, dur, vol });
+      tone({ freq: f * 1.5, type: "triangle", start, dur: dur * 0.8, vol: vol * 0.20 });
+    });
+
+    // 2. Grand celebratory chord (held major chord with rich foundation)
+    const chordStart = 0.76;
+    const chordDur   = 0.85;
+    const chord = [
+      { f: 261.63, vol: 0.24 }, // C4 warm bass
+      { f: 392.00, vol: 0.20 }, // G4
+      { f: 523.25, vol: 0.26 }, // C5
+      { f: 659.25, vol: 0.24 }, // E5
+      { f: 783.99, vol: 0.26 }, // G5
+      { f: 1046.50, vol: 0.28 }, // C6
+    ];
+
+    chord.forEach(({ f, vol }) => {
+      tone({ freq: f, type: "sine", start: chordStart, dur: chordDur, vol });
+      tone({ freq: f * 2, type: "triangle", start: chordStart, dur: chordDur * 0.7, vol: vol * 0.15 });
+    });
+
+    // 3. Shimmering high victory sparkle chimes
+    const sparkles = [
+      { f: 1318.51, start: 0.88, dur: 0.25, vol: 0.18 }, // E6
+      { f: 1567.98, start: 1.02, dur: 0.28, vol: 0.18 }, // G6
+      { f: 2093.00, start: 1.16, dur: 0.45, vol: 0.22 }, // C7 sparkling finale
+    ];
+
+    sparkles.forEach(({ f, start, dur, vol }) => {
+      tone({ freq: f, type: "triangle", start, dur, vol });
+    });
+  };
+
+  if (ctx.state === "suspended") {
+    ctx.resume().then(trigger).catch(() => {});
+  } else {
+    trigger();
+  }
+}
+
 /**
  * Plays playClick() for EVERY button on the page (including ones added later).
  * Call once at startup. Also unlocks audio on the first press.

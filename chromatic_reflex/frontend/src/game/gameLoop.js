@@ -9,7 +9,7 @@
 
 import { classifyGesture, getGestureConfidence } from '../gesture/gestureClassifier.js';
 import { drawHand } from '../hands/overlay.js';
-import { playCorrect, playWrong } from '../audio/soundManager.js';
+import { playCorrect, playWrong, playCompletion } from '../audio/soundManager.js';
 
 // ── Config (mirrors config/gestures.json) ─────────────────────────────────────
 const COLOR_GESTURE_MAP = {
@@ -107,6 +107,9 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
     ui.setRound(1, TOTAL_ROUNDS);
     ui.setScore(0);
     ui.setStreak(0);
+    if (ui.updateLiveStats) {
+      ui.updateLiveStats(stats, streak, 1, TOTAL_ROUNDS);
+    }
     ui.showArm();
 
     // ── Frame loop ────────────────────────────────────────────────────────────
@@ -117,7 +120,8 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
       const now = performance.now();
       const det = tracker.detect(videoEl);
       ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-      if (det.landmarks) drawHand(ctx, det.landmarks);
+      const activeColor = ui.getStageColor ? ui.getStageColor() : '#38bdf8';
+      if (det.landmarks) drawHand(ctx, det.landmarks, activeColor);
 
       const label = classifyGesture(det.landmarks);
       const conf  = getGestureConfidence(det.landmarks, label);
@@ -126,6 +130,7 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
 
         // ── ARM: wait for rest position ─────────────────────────────────────
         case 'ARM': {
+          if (ui.updateDetection) ui.updateDetection(label, 0);
           if (isRest(label)) {
             if (now - stateStart >= ARM_HOLD_MS) {
               // Armed! Schedule random delay
@@ -142,6 +147,7 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
 
         // ── DELAY: random wait; false start detection ────────────────────────
         case 'DELAY': {
+          if (ui.updateDetection) ui.updateDetection(label, 0);
           if (isMapped(label) && conf >= CONF_THRESH) {
             // False start!
             transitionTo('ARM', now);
@@ -163,6 +169,7 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
           const currentTimeout = getRoundTimeout(roundIdx, TOTAL_ROUNDS);
           // Timeout
           if (now - t0 >= currentTimeout) {
+            if (ui.updateDetection) ui.updateDetection(label, 0);
             recordResult('timeout', null, currentColor, targetGesture, null);
             transitionTo('FEEDBACK', now);
             ui.showFeedback('timeout', null, targetGesture, null);
@@ -180,8 +187,12 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
               runCount++;
               if (runCount === 1) runStart = now;
               const threshold = isTarget ? CONFIRM_N : CONFIRM_WRONG_N;
+              const progress = Math.min(1, runCount / threshold);
+              if (ui.updateDetection) ui.updateDetection(label, progress);
+
               if (runCount >= threshold) {
                 const rt = runStart - t0;
+                if (ui.updateDetection) ui.updateDetection(label, 1);
                 if (isTarget) {
                   playCorrect();
                   recordResult('correct', rt, currentColor, targetGesture, label);
@@ -197,6 +208,8 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
               runLabel = label;
               runCount = 1;
               runStart = now;
+              const threshold = isTarget ? CONFIRM_N : CONFIRM_WRONG_N;
+              if (ui.updateDetection) ui.updateDetection(label, Math.min(1, 1 / threshold));
             }
           } else {
             // Reset run on non-mapped or low-conf frame
@@ -205,12 +218,14 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
               runCount = 0;
               runStart = -1;
             }
+            if (ui.updateDetection) ui.updateDetection(label, 0);
           }
           break;
         }
 
         // ── FEEDBACK: hold result on screen ─────────────────────────────────
         case 'FEEDBACK': {
+          if (ui.updateDetection) ui.updateDetection(label, 0);
           if (now - stateStart >= FEEDBACK_MS) {
             ui.hideFeedback();
             roundIdx++;
@@ -219,6 +234,7 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
               isTerminated = true;
               cancelAnimationFrame(rafId);
               ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+              playCompletion();
               ui.showResults(
                 stats,
                 playerInfo,
@@ -234,6 +250,9 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
             runLabel = null; runCount = 0; runStart = -1;
             transitionTo('ARM', now);
             ui.setRound(roundIdx + 1, TOTAL_ROUNDS);
+            if (ui.updateLiveStats) {
+              ui.updateLiveStats(stats, streak, roundIdx + 1, TOTAL_ROUNDS);
+            }
             ui.showArm();
           }
           break;
@@ -275,6 +294,9 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
 
       ui.setScore(stats.score);
       ui.setStreak(streak);
+      if (ui.updateLiveStats) {
+        ui.updateLiveStats(stats, streak, roundIdx + 1, TOTAL_ROUNDS);
+      }
     }
   });
 }
