@@ -22,19 +22,28 @@ export async function createHandTracker() {
   return {
     // Returns { landmarks: [21 x {x,y,z}] | null, handedness, score }
     detect(videoEl) {
-      // MediaPipe requires strictly increasing timestamps
-      let ts = performance.now();
-      if (ts <= lastTs) ts = lastTs + 1;
-      lastTs = ts;
+      try {
+        // MediaPipe requires strictly increasing timestamps
+        let ts = performance.now();
+        if (ts <= lastTs) ts = lastTs + 1;
+        lastTs = ts;
 
-      const r = landmarker.detectForVideo(videoEl, ts);
-      const hand = r.landmarks?.[0] ?? null;
-      const h = r.handednesses?.[0]?.[0];
-      return {
-        landmarks: hand,
-        handedness: h?.categoryName ?? null, // NOTE: may be flipped for non-mirrored video, verify in Step 2
-        score: h?.score ?? 0,
-      };
+        const r = landmarker.detectForVideo(videoEl, ts);
+        const hand = r.landmarks?.[0] ?? null;
+        const h = r.handednesses?.[0]?.[0];
+        return {
+          landmarks: hand,
+          handedness: h?.categoryName ?? null,
+          score: h?.score ?? 0,
+        };
+      } catch (err) {
+        console.warn("HandTracker detect recovered from error:", err);
+        return {
+          landmarks: null,
+          handedness: null,
+          score: 0,
+        };
+      }
     },
   };
 }
