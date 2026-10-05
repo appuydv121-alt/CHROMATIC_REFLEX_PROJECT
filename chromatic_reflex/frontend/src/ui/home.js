@@ -1,4 +1,5 @@
 import { playClick } from '../audio/soundManager.js';
+import { createLeaderboardScreen } from './leaderboard.js';
 
 function injectHomeStyles() {
   if (document.getElementById('home-styles')) return;
@@ -154,6 +155,22 @@ function injectHomeStyles() {
     .home-btn-play:active {
       transform: translateY(0);
     }
+    .home-btn-leaderboard {
+      width: 100%;
+      padding: 13px 0; border-radius: 12px;
+      border: 1.5px solid rgba(56, 189, 248, 0.3);
+      background: rgba(56, 189, 248, 0.06); color: #7dd3fc;
+      font-size: 14px; font-weight: 800; font-family: inherit;
+      cursor: pointer; letter-spacing: -0.01em;
+      transition: all 0.2s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .home-btn-leaderboard:hover {
+      background: rgba(56, 189, 248, 0.14);
+      border-color: rgba(56, 189, 248, 0.6);
+      transform: translateY(-2px);
+    }
+    .home-btn-leaderboard:active { transform: translateY(0); }
 
     .home-footer-note {
       font-size: 12px; color: #475569; font-weight: 500;
@@ -216,12 +233,17 @@ export function createHomeScreen() {
         <button class="home-btn-play" id="home-btn-play">
           Start Benchmark 🚀
         </button>
+        <button class="home-btn-leaderboard" id="home-btn-leaderboard">
+          🏆 View Leaderboard
+        </button>
         <span class="home-footer-note">Webcam required • Stand 40–70 cm away</span>
       </div>
     </div>
   `;
 
   document.body.appendChild(ov);
+
+  const leaderboard = createLeaderboardScreen();
 
   return {
     show(onPlay) {
@@ -231,6 +253,15 @@ export function createHomeScreen() {
         playClick();
         ov.classList.add('home-hidden');
         onPlay?.();
+      };
+      const lbBtn = document.getElementById('home-btn-leaderboard');
+      lbBtn.onclick = () => {
+        playClick();
+        ov.classList.add('home-hidden');
+        leaderboard.show(() => {
+          // Back from leaderboard → show home again
+          ov.classList.remove('home-hidden');
+        });
       };
     },
     hide() {
